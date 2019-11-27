@@ -73,9 +73,9 @@ LOG_ENABLED = False
 
 # Configure item pipelines
 # See https://doc.scrapy.org/en/latest/topics/item-pipeline.html
-#ITEM_PIPELINES = {
-#    'dianping_scrape.pipelines.DianpingScrapePipeline': 300,
-#}
+ITEM_PIPELINES = {
+   'dianping_scrape.pipelines.DianpingScrapePipeline': 300,
+}
 
 # Enable and configure the AutoThrottle extension (disabled by default)
 # See https://doc.scrapy.org/en/latest/topics/autothrottle.html

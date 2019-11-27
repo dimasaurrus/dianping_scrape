@@ -38,22 +38,28 @@ class DiangpingScrape(scrapy.Spider):
 
 	# --- get data restaurant ---
 	def get_data_restaurant(self, response):
+		# print ("PASS")
+		time.sleep(240) #load page
 		global list_restaurant_by_city
 		get_city = response.css("div.logo-input div.clearfix a.J-city span::text").extract()
 		get_url = response.request.url
 		url =  get_url
 		self.browser.get(url)
-		time.sleep(3) #load page
 		html = self.browser.page_source
 		soup = BeautifulSoup(html, features='html.parser')
-		get_table = soup.find("table")
-		restaurant_item = RestaurantItem()
-		for get_link_and_name_restaurant in get_table.select(".J_shopName"):
-			restaurant_item["city"] = get_city[0]
-			restaurant_item["restaurant_url"] = get_link_and_name_restaurant.get("href")
-			restaurant_item["link_menus"] = get_link_and_name_restaurant.get("href") + "/dishlist"
-			restaurant_item["name_restaurant"] = get_link_and_name_restaurant.text
-			yield scrapy.Request(url=get_link_and_name_restaurant.get("href") + "/dishlist", callback=self.get_menu_data)
+		
+		# -- tested --
+		# get_table = soup.find("table")
+		get_menus= soup.find_all("div", {"class": "tit"})
+		get_data = get_menus.select(".tit")
+
+		# restaurant_item = RestaurantItem()
+		# for get_link_and_name_restaurant in get_table.select(".J_shopName"):
+		# 	restaurant_item["city"] = get_city[0]
+		# 	restaurant_item["restaurant_url"] = get_link_and_name_restaurant.get("href")
+		# 	restaurant_item["link_menus"] = get_link_and_name_restaurant.get("href") + "/dishlist"
+		# 	restaurant_item["name_restaurant"] = get_link_and_name_restaurant.text
+		# 	yield scrapy.Request(url=get_link_and_name_restaurant.get("href") + "/dishlist", callback=self.get_menu_data)
 
 			# vals = {
 			# 	"city" : get_city[0],

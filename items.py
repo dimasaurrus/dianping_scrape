@@ -11,10 +11,13 @@ class RestaurantItem(Item):
 	_id = Field()
 	city = Field()
 	restaurant_url = Field() 
-	restaurant_name = Field()
+	link_menus = Field()
+	name_restaurant = Field()
+	region = Field()
+	taste = Field()
 
 
 # class DianpingScrapeItem(scrapy.Item):
-    # define the fields for your item here like:
-    # name = scrapy.Field()
-    # pass
+	# define the fields for your item here like:
+	# name = scrapy.Field()
+	# pass
