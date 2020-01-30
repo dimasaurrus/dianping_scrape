@@ -1,10 +1,12 @@
 import scrapy
 import re
 import json
+import nltk
 from selenium import webdriver
 from bs4 import BeautifulSoup
 import time
 import requests
+from lxml.html import fromstring
 from collections import defaultdict
 from scrapy.crawler import CrawlerProcess
 from scrapy.utils.project import get_project_settings
@@ -12,48 +14,93 @@ from scrapy.http.cookies import CookieJar
 from dianping_scrape.items import RestaurantItem
 from scrapy.selector import Selector
 
+headerInfo = {'content-type': 'application/json' }
+
 list_restaurant_by_city = {}
 class DiangpingScrape(scrapy.Spider):
 	name = "dianping_spider"
-	handle_httpstatus_all = [302]
+	handle_httpstatus_list = [301, 302]
 
 	# --- webdrive for selenium ---
 	def __init__(self):
 		self.browser = webdriver.PhantomJS()
 
-	# --- main url dianping ---
+	def _get_ip_proxy(self):
+		url = 'https://free-proxy-list.net/'
+		response = requests.get(url)
+		parser = fromstring(response.text)
+		list_ip = []
+		for i in parser.xpath('//tbody/tr')[:20]:
+			get_ip = i.xpath('.//td[1]/text()')[0]
+			get_port = i.xpath('.//td[2]/text()')[0]
+			ip_n_port = str(get_ip)+":"+str(get_port)
+			list_ip.append(ip_n_port)
+		return list_ip
+
+
+	# --- url list of city ---
 	def start_requests(self):
-		yield scrapy.Request(url="http://www.dianping.com", callback=self.get_all_city)
+		# get_list_ip = self._get_ip_proxy()
+		# yield scrapy.Request(url="http://www.dianping.com", callback=self.get_all_city)
+		start_urls = [
+			"http://www.dianping.com/citylist"
+		]
 
-	# -- check cookies --
-	def _method_check_coockies(self, val_cookies):
-		split_str_cookie = dict(item.split("=") for item in val_cookies.split(";"))
-		return split_str_cookie
+		# for loop_ip in get_list_ip:
+		req= scrapy.Request(
+			url=start_urls[0], 
+			callback=self.get_all_city,
+			# meta={"proxy": "http://"+loop_ip}
+		)
+		# req.headers['Cookie'] = 'js_enabled=true; is_cookie_active=true;'
+		yield req
 
-	# --- get city ---
+	# --- get link food by city ---
 	def get_all_city(self, response):
-		# get_city = response.css("div.clearfix a.city-item::text").extract()
-		get_city = response.css("div.clearfix a.city-item::attr(href)").extract()
+		# === First Version ==
+		# get_city = response.css("div.clearfix a.city-item::attr(href)").extract()
+
+		# === second version ==
+		get_city = response.css("div.findHeight a.onecity::attr(href)").extract()
 
 		for loop_city in get_city:
 			url_by_city = loop_city.replace("//", "http://")
 			yield scrapy.Request(url=url_by_city+"/food", callback=self.get_link_restaurant)
 
-	# --- get link restaurant by city ---
+	# --- get list restaurant by city ---
 	def get_link_restaurant(self, response):
-		try:
-			link_list_restaurant = response.css("div.main a.more::attr(href)").extract()[1]
-			yield scrapy.Request(url="http://www.dianping.com"+link_list_restaurant, callback=self.get_data_restaurant)
-		except IndexError:
+		# for get_review_restaurant in response.css("div.popular-nav ul.Fix a::attr(title)").extract():
+		if response.css("div.popular-nav ul.Fix"):
+			for loop_restaurant in response.css("div.popular-nav ul.Fix"):
+				for get_review_restaurant in loop_restaurant.css("a").extract():
+					soup = BeautifulSoup(get_review_restaurant, features='html.parser')
+					for a in soup.find_all('a'):
+						try:
+							if a['title'] == "评价餐厅":
+								yield scrapy.Request(url="http://www.dianping.com"+a['href'] ,callback=self.get_data_restaurant)
+						except:
+							pass
+		else:
 			pass
 
-	# --- get data restaurant ---
+	# --- get link restaurant ---
 	def get_data_restaurant(self, response):
-		get_city = response.css("div.logo-input div.clearfix a.J-city span::text").extract()
-		get_tag_div = response.css("div.tit")
-		for get_type_link in get_tag_div:
-			for get_link_restaurant in get_type_link.css("a::attr(href)").extract():
-				yield scrapy.Request(url=get_link_restaurant+"/dishlist", callback=self.get_menu_data)
+		get_url = response.request.url
+		self.browser.get(get_url)
+		html = self.browser.page_source
+		soup = BeautifulSoup(html, features='html.parser')
+		get_table = soup.find("table")
+		try:
+			for get_link_and_name_restaurant in get_table.select(".J_shopName"):
+				get_link = get_link_and_name_restaurant.get("href")
+				yield scrapy.Request(url=get_link+"/dishlist", callback=self.get_list_menu_restaurant)
+		except AttributeError:
+			pass
+
+		# get_tag_div = response.css("div.tit")
+		# for get_type_link in get_tag_div:
+		# 	for get_link_restaurant in get_type_link.css("a::attr(href)").extract():
+		# 		yield scrapy.Request(url=get_link_restaurant+"/dishlist", callback=self.get_menu_data)
 		# restaurant_item = RestaurantItem()
 
 		# url =  get_url
@@ -112,19 +159,17 @@ class DiangpingScrape(scrapy.Spider):
 		# item_dumps = json.dumps(loads_data, ensure_ascii=False, indent=2)
 
 
-	# --- get data menu by link ---
+	# --- get list menu by restaurant ---
 	def get_menu_data(self, response):
-		print ("MASUK")
 		get_menu_url = response.request.url
-		name_restaurant = response.css("div.list-desc div.list-desc")
-		for get_data in name_restaurant.extract():
-			print (get_data.css("a::attr(href)").extract())
-			print (get_data.css("div.shop-food-img::text").extract())
-			print (get_data.css("div.shop-food-img img::attr(src)").extract())
-			print (get_data.css("svgmtsi.dishName::text").extract())
-			print ("TTTTTTTTTTTTTTT")
-
-
+		name_restaurant = response.css("div.list-desc")
+		for get_data in name_restaurant:
+			# print ("Link = ",get_data.css("a::attr(href)").extract())
+			urls_menu = get_data.css("a::attr(href)").extract()
+			for loop_url_menu in urls_menu:
+				if loop_url_menu:
+					yield scrapy.Request(url="http://www.dianping.com/"+loop_url_menu, callback=self._get_menu_data)
+					
 if __name__ == "__main__":
 	process = CrawlerProcess(get_project_settings())
 	process.crawl('dianping_spider')

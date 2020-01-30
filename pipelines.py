@@ -11,11 +11,5 @@ get_start_requests = DiangpingScrape()
 class DianpingScrapePipeline(object):
 	GlobalPipelineTerminator = True
 	def process_item(self, item, spider):
-		print ("MASUKKKKKK")
 		if isinstance(item, RestaurantItem):
-			print (item)
-			print ("-0-0-0-0-0")
-			print (item["link_menus"])
-			print ("=-=--=-=-0")
-			stop
 			return item
