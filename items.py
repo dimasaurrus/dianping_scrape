@@ -66,15 +66,3 @@ class TestPipeline(object):
 		def close_spider(self, spider ):
 			# close the fil
 			self.filename.close()
-
-# ====================================================
-
-class ShopItem(Item):
-	name = Field()
-	link = Field()
-	lng = Field()
-	lat = Field()
-
-class DishItem(Item):
-	name = Field()
-	link = Field()
